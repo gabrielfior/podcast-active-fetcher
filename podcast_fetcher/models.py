@@ -43,6 +43,24 @@ class Episode(SQLModel, table=True):
         arbitrary_types_allowed = True
 
 
+class UpdateFrequency(SQLModel, table=True):
+    """SQLModel for storing user update frequency preferences."""
+    username: str = Field(primary_key=True, description="Telegram username")
+    frequency_in_days: int = Field(description="Update frequency in days")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Timestamp when the preference was created"
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Timestamp when the preference was last updated"
+    )
+
+    class Config:
+        """Pydantic config."""
+        arbitrary_types_allowed = True
+
+
 class TranscriptionJob(SQLModel, table=True):
     """SQLModel for tracking transcription jobs.
     

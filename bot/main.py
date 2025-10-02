@@ -17,18 +17,19 @@ from sqlmodel import Session, select
 
 load_dotenv()
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters,
 )
 
 # Import database functionality
-from podcast_fetcher.database import init_database
+from podcast_fetcher.database import init_database, set_user_update_frequency, get_user_update_frequency
 from podcast_fetcher.models import Podcast
 
 
@@ -112,6 +113,92 @@ async def received_podcast_rss(update: Update, context: ContextTypes.DEFAULT_TYP
     return ConversationHandler.END
 
 
+async def set_update_frequency(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Display inline keyboard for setting update frequency."""
+    keyboard = [
+        [
+            InlineKeyboardButton("Last 3 days", callback_data="freq_3"),
+            InlineKeyboardButton("Last 7 days", callback_data="freq_7"),
+        ],
+        [
+            InlineKeyboardButton("Last 15 days", callback_data="freq_15"),
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        "📅 Choose your podcast update frequency:",
+        reply_markup=reply_markup
+    )
+
+
+async def handle_frequency_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the callback from frequency selection."""
+    query = update.callback_query
+    await query.answer()
+    
+    frequency_map = {
+        "freq_3": ("3 days", 3),
+        "freq_7": ("7 days", 7), 
+        "freq_15": ("15 days", 15)
+    }
+    
+    selected_frequency_text, frequency_days = frequency_map.get(query.data, ("Unknown", 0))
+    username = query.from_user.username
+    
+    try:
+        # Initialize database
+        engine = init_database()
+        
+        # Save frequency to database
+        success = set_user_update_frequency(engine, username, frequency_days)
+        
+        if success:
+            await query.edit_message_text(
+                f"✅ Update frequency set to: **{selected_frequency_text}**\n\n"
+                f"Your podcasts will be updated to fetch episodes from the last {selected_frequency_text}."
+            )
+        else:
+            await query.edit_message_text(
+                f"❌ Sorry, there was an error saving your frequency preference. Please try again later."
+            )
+            
+    except Exception as e:
+        logger.error(f"Database error when setting frequency: {e}")
+        await query.edit_message_text(
+            f"❌ Sorry, there was an error saving your frequency preference. Please try again later."
+        )
+
+
+async def check_update_frequency(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Check and display the user's current update frequency setting."""
+    username = update.message.from_user.username
+    
+    try:
+        # Initialize database
+        engine = init_database()
+        
+        # Get user's frequency setting
+        frequency_days = get_user_update_frequency(engine, username)
+        
+        if frequency_days is not None:
+            await update.message.reply_text(
+                f"📅 Your current update frequency is: **{frequency_days} days**\n\n"
+                f"Your podcasts will fetch episodes from the last {frequency_days} days."
+            )
+        else:
+            await update.message.reply_text(
+                f"❓ You haven't set an update frequency yet.\n\n"
+                f"Use /set_update_frequency to configure your preference."
+            )
+            
+    except Exception as e:
+        logger.error(f"Database error when checking frequency: {e}")
+        await update.message.reply_text(
+            f"❌ Sorry, there was an error retrieving your frequency setting. Please try again later."
+        )
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
     user = update.message.from_user
@@ -154,6 +241,15 @@ def main() -> None:
     )
 
     application.add_handler(add_podcast_conv_handler)
+    
+    # Add command handler for set_update_frequency
+    application.add_handler(CommandHandler("set_update_frequency", set_update_frequency))
+    
+    # Add command handler for check_update_frequency
+    application.add_handler(CommandHandler("check_update_frequency", check_update_frequency))
+    
+    # Add callback query handler for frequency selection
+    application.add_handler(CallbackQueryHandler(handle_frequency_callback, pattern="^freq_"))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)
