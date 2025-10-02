@@ -43,10 +43,10 @@ class Episode(SQLModel, table=True):
         arbitrary_types_allowed = True
 
 
-class UpdateFrequency(SQLModel, table=True):
-    """SQLModel for storing user update frequency preferences."""
+class EpisodeLookback(SQLModel, table=True):
+    """SQLModel for storing user episode lookback preferences."""
     username: str = Field(primary_key=True, description="Telegram username")
-    frequency_in_days: int = Field(description="Update frequency in days")
+    episode_lookback_days: int = Field(description="Number of days to look back for episodes")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the preference was created"

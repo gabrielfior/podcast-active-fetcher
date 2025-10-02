@@ -1,13 +1,4 @@
-#!/usr/bin/env python
-# pylint: disable=unused-argument
 
-"""
-Podcast Bot - A Telegram bot for adding podcasts.
-
-Usage:
-Send /add_podcast to start adding a new podcast.
-Press Ctrl-C on the command line or send a signal to the process to stop the bot.
-"""
 
 from loguru import logger
 import os
@@ -29,7 +20,7 @@ from telegram.ext import (
 )
 
 # Import database functionality
-from podcast_fetcher.database import init_database, set_user_update_frequency, get_user_update_frequency
+from podcast_fetcher.database import init_database, set_user_episode_lookback, get_user_episode_lookback
 from podcast_fetcher.models import Podcast
 
 
@@ -113,89 +104,89 @@ async def received_podcast_rss(update: Update, context: ContextTypes.DEFAULT_TYP
     return ConversationHandler.END
 
 
-async def set_update_frequency(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Display inline keyboard for setting update frequency."""
+async def set_episode_lookback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Display inline keyboard for setting episode lookback days."""
     keyboard = [
         [
-            InlineKeyboardButton("Last 3 days", callback_data="freq_3"),
-            InlineKeyboardButton("Last 7 days", callback_data="freq_7"),
+            InlineKeyboardButton("Last 3 days", callback_data="lookback_3"),
+            InlineKeyboardButton("Last 7 days", callback_data="lookback_7"),
         ],
         [
-            InlineKeyboardButton("Last 15 days", callback_data="freq_15"),
+            InlineKeyboardButton("Last 15 days", callback_data="lookback_15"),
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "📅 Choose your podcast update frequency:",
+        "📅 Choose how far back to fetch episodes:",
         reply_markup=reply_markup
     )
 
 
-async def handle_frequency_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the callback from frequency selection."""
+async def handle_lookback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the callback from episode lookback selection."""
     query = update.callback_query
     await query.answer()
     
-    frequency_map = {
-        "freq_3": ("3 days", 3),
-        "freq_7": ("7 days", 7), 
-        "freq_15": ("15 days", 15)
+    lookback_map = {
+        "lookback_3": ("3 days", 3),
+        "lookback_7": ("7 days", 7), 
+        "lookback_15": ("15 days", 15)
     }
     
-    selected_frequency_text, frequency_days = frequency_map.get(query.data, ("Unknown", 0))
+    selected_lookback_text, lookback_days = lookback_map.get(query.data, ("Unknown", 0))
     username = query.from_user.username
     
     try:
         # Initialize database
         engine = init_database()
         
-        # Save frequency to database
-        success = set_user_update_frequency(engine, username, frequency_days)
+        # Save lookback setting to database
+        success = set_user_episode_lookback(engine, username, lookback_days)
         
         if success:
             await query.edit_message_text(
-                f"✅ Update frequency set to: **{selected_frequency_text}**\n\n"
-                f"Your podcasts will be updated to fetch episodes from the last {selected_frequency_text}."
+                f"✅ Episode lookback set to: **{selected_lookback_text}**\n\n"
+                f"Your podcasts will fetch episodes from the last {selected_lookback_text}."
             )
         else:
             await query.edit_message_text(
-                f"❌ Sorry, there was an error saving your frequency preference. Please try again later."
+                f"❌ Sorry, there was an error saving your lookback preference. Please try again later."
             )
             
     except Exception as e:
-        logger.error(f"Database error when setting frequency: {e}")
+        logger.error(f"Database error when setting lookback: {e}")
         await query.edit_message_text(
-            f"❌ Sorry, there was an error saving your frequency preference. Please try again later."
+            f"❌ Sorry, there was an error saving your lookback preference. Please try again later."
         )
 
 
-async def check_update_frequency(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Check and display the user's current update frequency setting."""
+async def check_episode_lookback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Check and display the user's current episode lookback setting."""
     username = update.message.from_user.username
     
     try:
         # Initialize database
         engine = init_database()
         
-        # Get user's frequency setting
-        frequency_days = get_user_update_frequency(engine, username)
+        # Get user's lookback setting
+        lookback_days = get_user_episode_lookback(engine, username)
         
-        if frequency_days is not None:
+        if lookback_days is not None:
             await update.message.reply_text(
-                f"📅 Your current update frequency is: **{frequency_days} days**\n\n"
-                f"Your podcasts will fetch episodes from the last {frequency_days} days."
+                f"📅 Your current episode lookback is: **{lookback_days} days**\n\n"
+                f"Your podcasts will fetch episodes from the last {lookback_days} days."
             )
         else:
             await update.message.reply_text(
-                f"❓ You haven't set an update frequency yet.\n\n"
-                f"Use /set_update_frequency to configure your preference."
+                f"❓ You haven't set an episode lookback yet.\n\n"
+                f"Use /set_episode_lookback to configure your preference."
             )
             
     except Exception as e:
-        logger.error(f"Database error when checking frequency: {e}")
+        logger.error(f"Database error when checking lookback: {e}")
         await update.message.reply_text(
-            f"❌ Sorry, there was an error retrieving your frequency setting. Please try again later."
+            f"❌ Sorry, there was an error retrieving your lookback setting. Please try again later."
         )
 
 
@@ -242,14 +233,14 @@ def main() -> None:
 
     application.add_handler(add_podcast_conv_handler)
     
-    # Add command handler for set_update_frequency
-    application.add_handler(CommandHandler("set_update_frequency", set_update_frequency))
+    # Add command handler for set_episode_lookback
+    application.add_handler(CommandHandler("set_episode_lookback", set_episode_lookback))
     
-    # Add command handler for check_update_frequency
-    application.add_handler(CommandHandler("check_update_frequency", check_update_frequency))
+    # Add command handler for check_episode_lookback
+    application.add_handler(CommandHandler("check_episode_lookback", check_episode_lookback))
     
-    # Add callback query handler for frequency selection
-    application.add_handler(CallbackQueryHandler(handle_frequency_callback, pattern="^freq_"))
+    # Add callback query handler for lookback selection
+    application.add_handler(CallbackQueryHandler(handle_lookback_callback, pattern="^lookback_"))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)

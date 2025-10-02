@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import os
 load_dotenv()
 
-from podcast_fetcher.models import Episode, UpdateFrequency
+from podcast_fetcher.models import Episode, EpisodeLookback
 from loguru import logger
 
 
@@ -120,13 +120,13 @@ def get_episodes_since(engine: Engine, days_ago: int) -> List[Episode]:
         return list(results.all())
 
 
-def set_user_update_frequency(engine: Engine, username: str, frequency_in_days: int) -> bool:
-    """Set or update the update frequency for a user.
+def set_user_episode_lookback(engine: Engine, username: str, episode_lookback_days: int) -> bool:
+    """Set or update the episode lookback days for a user.
     
     Args:
         engine: SQLAlchemy engine
         username: Telegram username
-        frequency_in_days: Update frequency in days
+        episode_lookback_days: Number of days to look back for episodes
         
     Returns:
         bool: True if successful, False otherwise
@@ -135,44 +135,44 @@ def set_user_update_frequency(engine: Engine, username: str, frequency_in_days: 
         from datetime import datetime, timezone
         
         with Session(engine) as session:
-            # Check if user already has a frequency setting
-            existing = session.get(UpdateFrequency, username)
+            # Check if user already has a lookback setting
+            existing = session.get(EpisodeLookback, username)
             
             if existing:
-                # Update existing frequency
-                existing.frequency_in_days = frequency_in_days
+                # Update existing lookback setting
+                existing.episode_lookback_days = episode_lookback_days
                 existing.updated_at = datetime.now(timezone.utc)
             else:
-                # Create new frequency setting
-                frequency = UpdateFrequency(
+                # Create new lookback setting
+                lookback = EpisodeLookback(
                     username=username,
-                    frequency_in_days=frequency_in_days
+                    episode_lookback_days=episode_lookback_days
                 )
-                session.add(frequency)
+                session.add(lookback)
             
             session.commit()
             return True
             
     except Exception as e:
-        logger.error(f"Error setting update frequency: {e}")
+        logger.error(f"Error setting episode lookback: {e}")
         return False
 
 
-def get_user_update_frequency(engine: Engine, username: str) -> Optional[int]:
-    """Get the update frequency for a user.
+def get_user_episode_lookback(engine: Engine, username: str) -> Optional[int]:
+    """Get the episode lookback days for a user.
     
     Args:
         engine: SQLAlchemy engine
         username: Telegram username
         
     Returns:
-        Optional[int]: Update frequency in days, or None if not set
+        Optional[int]: Episode lookback days, or None if not set
     """
     try:
         with Session(engine) as session:
-            frequency = session.get(UpdateFrequency, username)
-            return frequency.frequency_in_days if frequency else None
+            lookback = session.get(EpisodeLookback, username)
+            return lookback.episode_lookback_days if lookback else None
             
     except Exception as e:
-        logger.error(f"Error getting update frequency: {e}")
+        logger.error(f"Error getting episode lookback: {e}")
         return None

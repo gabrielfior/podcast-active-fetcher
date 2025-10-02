@@ -24,7 +24,7 @@ dependencies = [
     "sqlmodel>=0.0.24",
     "requests>=2.31.0",
     "joblib>=1.5.1",
-    "psycopg>=3.2.9",
+    "psycopg2-binary>=2.9.10",
     "llama-index>=0.13.2",
     "llama-index-llms-bedrock-converse>=0.8.2",
     "boto3>=1.39.11",
@@ -32,6 +32,7 @@ dependencies = [
     "telethon>=1.40.0",
     "python-telegram-bot>=22.5",
     "loguru>=0.7.1",
+    "python-dateutil>=2.8.2",
 ]
 
 [project.optional-dependencies]
@@ -56,5 +57,5 @@ exclude = ["ui*", "bot*", "data*", "aws_lambda_function*"]
 
 [dependency-groups]
 dev = [
-    "modal>=1.1.2",
+    "modal>=1.1.4",
 ]
