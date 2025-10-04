@@ -1,0 +1,11 @@
+# Requirements for the Telegram bot deployment
+python-telegram-bot>=22.5
+sqlmodel>=0.0.24
+beautifulsoup4>=4.13.4
+feedparser>=6.0.11
+python-dotenv>=1.1.1
+loguru>=0.7.1
+requests>=2.31.0
+python-dateutil>=2.8.2
+httpx>=0.24.0
+modal>=1.1.4

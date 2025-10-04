@@ -99,3 +99,6 @@ Data processing
 
 Language
 - [ ] It can only process english podcast episodes. Try to use a multi-language model.
+
+Next steps
+- [ ] Use Pyannote to create diarization output instead of a simple transcript from AWS Textract (https://docs.pyannote.ai/api-reference/diarize).

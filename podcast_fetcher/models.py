@@ -61,6 +61,57 @@ class EpisodeLookback(SQLModel, table=True):
         arbitrary_types_allowed = True
 
 
+class UserSubscription(SQLModel, table=True):
+    """SQLModel for user subscriptions to specific podcasts."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(index=True, description="Telegram username")
+    podcast_id: int = Field(foreign_key="podcast.id", index=True)
+    subscribed_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Timestamp when the user subscribed"
+    )
+    is_active: bool = Field(
+        default=True,
+        description="Whether the subscription is active"
+    )
+    notification_preferences: str = Field(
+        default="immediate",
+        description="Notification preference: immediate, daily, weekly"
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+    class Config:
+        """Pydantic config."""
+        arbitrary_types_allowed = True
+
+
+class ProcessedEpisode(SQLModel, table=True):
+    """SQLModel for tracking which episodes have been processed and sent to users."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    episode_id: str = Field(foreign_key="episode.id", index=True)
+    username: str = Field(index=True, description="Telegram username")
+    processed_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Timestamp when the episode was processed"
+    )
+    summary_sent: bool = Field(
+        default=False,
+        description="Whether the summary was sent to the user"
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+    class Config:
+        """Pydantic config."""
+        arbitrary_types_allowed = True
+
+
 class TranscriptionJob(SQLModel, table=True):
     """SQLModel for tracking transcription jobs.
     
