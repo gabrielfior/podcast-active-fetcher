@@ -15,12 +15,14 @@ def cli():
 @cli.command()
 @click.option('--title', prompt='Podcast title', help='Title of the podcast')
 @click.option('--rss-feed', prompt='RSS feed URL', help='URL of the podcast RSS feed')
-def add(title: str, rss_feed: str):
+@click.option('--username', prompt='Telegram username', help='Telegram username of the user adding this podcast')
+def add(title: str, rss_feed: str, username: str):
     """Add a new podcast series.
     
     Args:
         title: Title of the podcast
         rss_feed: URL of the podcast RSS feed
+        username: Telegram username of the user adding this podcast
     """
     engine = init_database()
     
@@ -38,6 +40,7 @@ def add(title: str, rss_feed: str):
         podcast = Podcast(
             title=title,
             rss_feed=rss_feed,
+            username=username,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
         )
@@ -45,7 +48,7 @@ def add(title: str, rss_feed: str):
         session.add(podcast)
         session.commit()
         
-        click.echo(f"Successfully added podcast: {title} ({rss_feed})")
+        click.echo(f"Successfully added podcast: {title} ({rss_feed}) by @{username}")
 
 @cli.command()
 @click.option('--limit', default=10, help='Maximum number of podcasts to list')
@@ -70,6 +73,7 @@ def list(limit: int):
         for i, podcast in enumerate(podcasts, 1):
             click.echo(f"{i}. {podcast.title}")
             click.echo(f"   RSS Feed: {podcast.rss_feed}")
+            click.echo(f"   Added by: @{podcast.username}" if podcast.username else "   Added by: Unknown")
             click.echo(f"   Added: {podcast.created_at.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
 if __name__ == "__main__":

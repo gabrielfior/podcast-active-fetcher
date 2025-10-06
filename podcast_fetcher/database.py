@@ -121,62 +121,6 @@ def get_episodes_since(engine: Engine, days_ago: int) -> List[Episode]:
         return list(results.all())
 
 
-def set_user_episode_lookback(engine: Engine, username: str, episode_lookback_days: int) -> bool:
-    """Set or update the episode lookback days for a user.
-    
-    Args:
-        engine: SQLAlchemy engine
-        username: Telegram username
-        episode_lookback_days: Number of days to look back for episodes
-        
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    try:
-        from datetime import datetime, timezone
-        
-        with Session(engine) as session:
-            # Check if user already has a lookback setting
-            existing = session.get(EpisodeLookback, username)
-            
-            if existing:
-                # Update existing lookback setting
-                existing.episode_lookback_days = episode_lookback_days
-                existing.updated_at = datetime.now(timezone.utc)
-            else:
-                # Create new lookback setting
-                lookback = EpisodeLookback(
-                    username=username,
-                    episode_lookback_days=episode_lookback_days
-                )
-                session.add(lookback)
-            
-            session.commit()
-            return True
-            
-    except Exception as e:
-        logger.error(f"Error setting episode lookback: {e}")
-        return False
-
-
-def get_user_episode_lookback(engine: Engine, username: str) -> Optional[int]:
-    """Get the episode lookback days for a user.
-    
-    Args:
-        engine: SQLAlchemy engine
-        username: Telegram username
-        
-    Returns:
-        Optional[int]: Episode lookback days, or None if not set
-    """
-    try:
-        with Session(engine) as session:
-            lookback = session.get(EpisodeLookback, username)
-            return lookback.episode_lookback_days if lookback else None
-            
-    except Exception as e:
-        logger.error(f"Error getting episode lookback: {e}")
-        return None
 
 
 # Subscription management functions

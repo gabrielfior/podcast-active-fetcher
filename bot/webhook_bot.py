@@ -24,7 +24,7 @@ from fastapi import FastAPI, Request, Response
 
 # Import database functionality
 from podcast_fetcher.database import (
-    init_database, set_user_episode_lookback, get_user_episode_lookback,
+    init_database,
     subscribe_user_to_podcast, get_user_subscriptions, unsubscribe_user_from_podcast,
     update_subscription_preferences
 )
@@ -305,90 +305,6 @@ async def handle_notification_preference(update: Update, context: ContextTypes.D
     return ConversationHandler.END
 
 
-async def set_episode_lookback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Display inline keyboard for setting episode lookback days."""
-    keyboard = [
-        [
-            InlineKeyboardButton("Last 3 days", callback_data="lookback_3"),
-            InlineKeyboardButton("Last 7 days", callback_data="lookback_7"),
-        ],
-        [
-            InlineKeyboardButton("Last 15 days", callback_data="lookback_15"),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text(
-        "📅 Choose how far back to fetch episodes:",
-        reply_markup=reply_markup
-    )
-
-
-async def handle_lookback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the callback from episode lookback selection."""
-    query = update.callback_query
-    await query.answer()
-    
-    lookback_map = {
-        "lookback_3": ("3 days", 3),
-        "lookback_7": ("7 days", 7), 
-        "lookback_15": ("15 days", 15)
-    }
-    
-    selected_lookback_text, lookback_days = lookback_map.get(query.data, ("Unknown", 0))
-    username = query.from_user.username
-    
-    try:
-        # Initialize database
-        engine = init_database()
-        
-        # Save lookback setting to database
-        success = set_user_episode_lookback(engine, username, lookback_days)
-        
-        if success:
-            await query.edit_message_text(
-                f"✅ Episode lookback set to: **{selected_lookback_text}**\n\n"
-                f"Your podcasts will fetch episodes from the last {selected_lookback_text}."
-            )
-        else:
-            await query.edit_message_text(
-                f"❌ Sorry, there was an error saving your lookback preference. Please try again later."
-            )
-            
-    except Exception as e:
-        logging.error(f"Database error when setting lookback: {e}")
-        await query.edit_message_text(
-            f"❌ Sorry, there was an error saving your lookback preference. Please try again later."
-        )
-
-
-async def check_episode_lookback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Check and display the user's current episode lookback setting."""
-    username = update.message.from_user.username
-    
-    try:
-        # Initialize database
-        engine = init_database()
-        
-        # Get user's lookback setting
-        lookback_days = get_user_episode_lookback(engine, username)
-        
-        if lookback_days is not None:
-            await update.message.reply_text(
-                f"📅 Your current episode lookback is: **{lookback_days} days**\n\n"
-                f"Your podcasts will fetch episodes from the last {lookback_days} days."
-            )
-        else:
-            await update.message.reply_text(
-                f"❓ You haven't set an episode lookback yet.\n\n"
-                f"Use /set_episode_lookback to configure your preference."
-            )
-            
-    except Exception as e:
-        logging.error(f"Database error when checking lookback: {e}")
-        await update.message.reply_text(
-            f"❌ Sorry, there was an error retrieving your lookback setting. Please try again later."
-        )
 
 
 async def my_subscriptions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -564,11 +480,6 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
             await query.edit_message_text(
                 "❌ Sorry, there was an error retrieving your subscriptions."
             )
-    elif query.data == "settings_lookback":
-        await query.edit_message_text(
-            "📅 **Episode Lookback Settings**\n\n"
-            "Use /set_episode_lookback to configure how far back to fetch episodes."
-        )
     elif query.data == "settings_view_all":
         # Redirect to my_subscriptions
         username = query.from_user.username
@@ -800,11 +711,6 @@ def fastapi_app_with_lifespan():
     # Add echo handler for testing
     ptb_application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     
-    # Add command handler for set_episode_lookback
-    ptb_application.add_handler(CommandHandler("set_episode_lookback", set_episode_lookback))
-    
-    # Add command handler for check_episode_lookback
-    ptb_application.add_handler(CommandHandler("check_episode_lookback", check_episode_lookback))
     
     # Add new subscription management commands
     ptb_application.add_handler(CommandHandler("my_subscriptions", my_subscriptions))
@@ -812,7 +718,6 @@ def fastapi_app_with_lifespan():
     ptb_application.add_handler(CommandHandler("subscription_settings", subscription_settings))
     
     # Add callback query handlers
-    ptb_application.add_handler(CallbackQueryHandler(handle_lookback_callback, pattern="^lookback_"))
     ptb_application.add_handler(CallbackQueryHandler(handle_unsubscribe_callback, pattern="^unsub_"))
     ptb_application.add_handler(CallbackQueryHandler(handle_settings_callback, pattern="^settings_"))
     ptb_application.add_handler(CallbackQueryHandler(handle_change_notification_callback, pattern="^change_notify_"))

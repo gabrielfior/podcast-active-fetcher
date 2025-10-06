@@ -43,24 +43,6 @@ class Episode(SQLModel, table=True):
         arbitrary_types_allowed = True
 
 
-class EpisodeLookback(SQLModel, table=True):
-    """SQLModel for storing user episode lookback preferences."""
-    username: str = Field(primary_key=True, description="Telegram username")
-    episode_lookback_days: int = Field(description="Number of days to look back for episodes")
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="Timestamp when the preference was created"
-    )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="Timestamp when the preference was last updated"
-    )
-
-    class Config:
-        """Pydantic config."""
-        arbitrary_types_allowed = True
-
-
 class UserSubscription(SQLModel, table=True):
     """SQLModel for user subscriptions to specific podcasts."""
     id: Optional[int] = Field(default=None, primary_key=True)
