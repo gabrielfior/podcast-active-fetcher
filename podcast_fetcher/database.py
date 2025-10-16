@@ -8,7 +8,7 @@ import os
 from datetime import datetime, timezone
 load_dotenv()
 
-from podcast_fetcher.models import Episode, EpisodeLookback, UserSubscription, ProcessedEpisode, Podcast
+from podcast_fetcher.models import Episode, UserSubscription, ProcessedEpisode, Podcast
 from loguru import logger
 
 
