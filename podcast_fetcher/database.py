@@ -21,7 +21,12 @@ def init_database() -> Engine:
     DB_PATH = os.getenv('SQLALCHEMY_DATABASE_URI')
     logger.info(f"Initializing database with path: {DB_PATH}")
     engine = create_engine(DB_PATH)
-    SQLModel.metadata.create_all(engine)
+    
+    # Create tables using a proper session context to ensure connection cleanup
+    with Session(engine) as session:
+        SQLModel.metadata.create_all(engine)
+        session.commit()
+    
     return engine
 
 def save_episode(engine: Engine, episode_data: Dict[str, Any]) -> Tuple[bool, str]:
