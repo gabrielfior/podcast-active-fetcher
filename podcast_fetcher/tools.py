@@ -36,3 +36,31 @@ class DatabaseTools:
                 #.where(Podcast.title == 'Software Engineering Daily')
             ).all()
             return episodes
+
+    @tool
+    def query_episode_by_id(self, episode_id: str) -> str:
+        """Query and retrieve the transcript of a specific podcast episode by its ID.
+        
+        Use this tool whenever the user asks about:
+        - Getting the transcript of a specific episode
+        - Reading the full content of an episode
+        - Analyzing or searching within episode content
+        - Getting detailed information from episode transcripts
+
+        Args:
+            episode_id: The unique identifier of the episode whose transcript to retrieve
+            
+        Returns:
+            The transcript text of the episode, or an error message if not found
+        """
+        
+        with Session(self.engine) as session:
+            transcript = session.exec(
+                select(Episode.transcript)
+                .where(Episode.id == episode_id)
+            ).first()
+            
+            if transcript:
+                return transcript
+            else:
+                return f"No transcript found for episode ID: {episode_id}"

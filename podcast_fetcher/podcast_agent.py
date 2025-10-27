@@ -100,7 +100,8 @@ class PodcastAgentManager:
         #with self.mcp_client:
             #self.tools = self.mcp_client.list_tools_sync()
             #print(f"tools: {[t.__dict__ for t in self.tools]}")
-        self.tools = [DatabaseTools().query_episodes_from_user]
+        db_tools = DatabaseTools()
+        self.tools = [db_tools.query_episodes_from_user, db_tools.query_episode_by_id]
         
         # Cache agents per user_id
         self.agents_cache: Dict[str, Agent] = {}
@@ -130,7 +131,7 @@ class PodcastAgentManager:
         #     boto_session=self.boto_session,
         # )
         
-        system_prompt = """You are a podcast assistant. When users ask about their episodes, use query_episodes_from_user tool. Username is provided in context."""
+        system_prompt = """You are a podcast assistant. When users ask about their episodes, use query_episodes_from_user tool. When users ask for episode transcripts or detailed content, use query_episode_by_id tool. Username is provided in context."""
 
         agent = Agent(
             tools=self.tools,
