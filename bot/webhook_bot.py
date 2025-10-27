@@ -1,36 +1,44 @@
-import os
-import logging
-import modal
-import uvicorn
-from dotenv import load_dotenv
-from contextlib import asynccontextmanager
-from http import HTTPStatus
-from typing import Dict, Any
-import re
 from datetime import datetime, timezone
+import logging
+import uvicorn
+import os
+import re
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request
+import modal
 from sqlmodel import Session, select
-
-from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
-from telegram.ext import (
-    Application, 
-    CommandHandler, 
-    ContextTypes, 
-    ConversationHandler, 
-    MessageHandler, 
-    CallbackQueryHandler, 
-    filters
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    Update,
 )
-from fastapi import FastAPI, Request, Response
+from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    ConversationHandler,
+    MessageHandler,
+    filters,
+)
+import nest_asyncio
 
-# Import database functionality
+from podcast_fetcher.talk_to_podcast_episodes import clean_response_for_telegram, get_agent_response
+nest_asyncio.apply()
+
+from podcast_fetcher.config import TADDY_API_KEY, TADDY_USER_ID
 from podcast_fetcher.database import (
+    get_user_subscriptions,
     init_database,
-    subscribe_user_to_podcast, get_user_subscriptions, unsubscribe_user_from_podcast,
-    update_subscription_preferences
+    subscribe_user_to_podcast,
+    unsubscribe_user_from_podcast,
+    update_subscription_preferences,
 )
 from podcast_fetcher.models import Podcast
-from podcast_fetcher.taddy_search import create_taddy_searcher, TaddySearchError
-from podcast_fetcher.config import TADDY_API_KEY, TADDY_USER_ID
+from podcast_fetcher.taddy_search import TaddySearchError, create_taddy_searcher
 
 # --- MODAL IMPORTS ---
 
@@ -48,6 +56,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # --- 2. Telegram Bot Handler Functions ---
+
+async def chat_with_agent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Simple echo handler for testing."""
+    logger.info("entered chat with agent")
+    print("entered chat with agent")
+    text = update.message.text
+    await update.message.reply_text(f"{text}")
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Simple echo handler for testing."""
@@ -625,6 +640,7 @@ async def process_telegram_update_local(request: Request):
     Note: This is a simplified version for local testing.
     The full implementation is in the Modal function.
     """
+    print("entered process_telegram_update_local")
     return {"status": "local_dev", "message": "Use Modal deployment for full functionality"}
 
 
@@ -647,7 +663,9 @@ image = (
         "beautifulsoup4",
         "lxml",
         "python-dateutil>=2.8.2",
-        "psycopg2-binary>=2.9.10"
+        "psycopg2-binary>=2.9.10",
+        "strands-agents>=1.12.0",
+        "nest-asyncio>=1.6.0",
     )
     #.uv_pip_install("sqlmodel>=0.0.24", "beautifulsoup4>=4.13.4", "feedparser>=6.0.11", "python-dotenv>=1.1.1", "loguru>=0.7.1", "psycopg>=3.2.9", "requests>=2.31.0", "python-dateutil>=2.8.2", "psycopg2-binary>=2.9.10", "boto3>=1.34.0", "telethon>=1.35.0", "llama-index>=0.13.2", "llama-index-llms-bedrock-converse>=0.8.2")
     .add_local_python_source("podcast_fetcher")
@@ -708,6 +726,9 @@ def fastapi_app_with_lifespan():
     # Add all handlers to the application
     ptb_application.add_handler(subscribe_conv_handler)
     
+    # chat with agent
+    ptb_application.add_handler(CommandHandler("chat", chat_with_agent))
+    
     # Add echo handler for testing
     ptb_application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     
@@ -732,6 +753,7 @@ def fastapi_app_with_lifespan():
             async with ptb_application:
                 await ptb_application.initialize()
                 await ptb_application.start()
+                ptb_application.run_webhook()
                 yield
                 await ptb_application.stop()
             logger.info("PTB application stopped.")

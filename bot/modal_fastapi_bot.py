@@ -314,7 +314,11 @@ def fastapi_bot():
                 f"✅ You selected: **{selected_podcast['name']}**\n\n"
                 f"📝 Description: {selected_podcast['description'][:200]}{'...' if len(selected_podcast['description']) > 200 else ''}\n\n"
                 f"🔗 RSS Feed: {selected_podcast['rss_url']}\n\n"
-                f"Type 'yes' to subscribe or 'no' to cancel:",
+                f"🔔 **Choose your notification preference:**\n\n"
+                f"1️⃣ **Immediate** - Get notified as soon as new episodes are published\n"
+                f"2️⃣ **Daily** - Get a daily digest of new episodes\n"
+                f"3️⃣ **Weekly** - Get a weekly digest of new episodes\n\n"
+                f"Please type the **number** (1, 2, or 3) of your preferred notification setting, or type 'cancel' to stop:",
                 parse_mode="Markdown"
             )
             
@@ -328,26 +332,47 @@ def fastapi_bot():
                 "❌ Error processing selection. Please try again or use /cancel to stop."
             )
     
-    # Handle subscription confirmation
+    # Handle notification preference selection
     @router.message(SubscribeStates.NOTIFICATION_PREFERENCES)
-    async def handle_subscription_confirmation(message: Message, state: FSMContext) -> None:
-        """Handle subscription confirmation."""
-        print(f"handle_subscription_confirmation called by user: {message.from_user.username}")
+    async def handle_notification_preference(message: Message, state: FSMContext) -> None:
+        """Handle notification preference selection."""
+        print(f"handle_notification_preference called by user: {message.from_user.username}")
         print(f"User input: {message.text}")
         
         try:
             # Check if user wants to cancel
-            if message.text.lower() in ['no', 'cancel', 'c', 'stop']:
+            if message.text.lower() in ['cancel', 'c', 'stop']:
                 await state.clear()
                 await message.answer("❌ Subscription cancelled.")
                 return
             
-            # Check if user confirms
-            if message.text.lower() not in ['yes', 'y', 'confirm']:
+            # Parse notification preference
+            try:
+                preference_number = int(message.text.strip())
+            except ValueError:
                 await message.answer(
-                    "❌ Please type 'yes' to subscribe or 'no' to cancel."
+                    "❌ Please enter a valid number (1, 2, or 3) or type 'cancel' to stop."
                 )
                 return
+            
+            # Map numbers to notification preferences
+            preference_map = {
+                1: "immediate",
+                2: "daily", 
+                3: "weekly"
+            }
+            
+            if preference_number not in preference_map:
+                await message.answer(
+                    "❌ Please enter 1, 2, or 3 for your notification preference, or type 'cancel' to stop."
+                )
+                return
+            
+            notification_preference = preference_map[preference_number]
+            print(f"Selected notification preference: {notification_preference}")
+            
+            # Store notification preference in state
+            await state.update_data(notification_preference=notification_preference)
             
             # Get selected podcast from state
             data = await state.get_data()
@@ -375,13 +400,14 @@ def fastapi_bot():
                         engine=engine,
                         username=username,
                         podcast_id=existing_podcast.id,
-                        notification_preferences="immediate"
+                        notification_preferences=notification_preference
                     )
                     
                     if success:
                         await message.answer(
                             f"🎉 Successfully subscribed to **{selected_podcast['name']}**!\n\n"
-                            f"You'll receive notifications about new episodes.",
+                            f"🔔 **Notification preference:** {notification_preference.title()}\n\n"
+                            f"You'll receive notifications about new episodes based on your preference.",
                             parse_mode="Markdown"
                         )
                     else:
@@ -404,13 +430,14 @@ def fastapi_bot():
                         engine=engine,
                         username=username,
                         podcast_id=podcast.id,
-                        notification_preferences="immediate"
+                        notification_preferences=notification_preference
                     )
                     
                     if success:
                         await message.answer(
                             f"🎉 Successfully subscribed to **{selected_podcast['name']}**!\n\n"
-                            f"You'll receive notifications about new episodes.",
+                            f"🔔 **Notification preference:** {notification_preference.title()}\n\n"
+                            f"You'll receive notifications about new episodes based on your preference.",
                             parse_mode="Markdown"
                         )
                     else:
@@ -473,7 +500,11 @@ def fastapi_bot():
                 f"✅ You selected: **{selected_podcast['name']}**\n\n"
                 f"📝 Description: {selected_podcast['description'][:200]}{'...' if len(selected_podcast['description']) > 200 else ''}\n\n"
                 f"🔗 RSS Feed: {selected_podcast['rss_url']}\n\n"
-                f"Type 'yes' to subscribe or 'no' to cancel:",
+                f"🔔 **Choose your notification preference:**\n\n"
+                f"1️⃣ **Immediate** - Get notified as soon as new episodes are published\n"
+                f"2️⃣ **Daily** - Get a daily digest of new episodes\n"
+                f"3️⃣ **Weekly** - Get a weekly digest of new episodes\n\n"
+                f"Please type the **number** (1, 2, or 3) of your preferred notification setting, or type 'cancel' to stop:",
                 parse_mode="Markdown"
             )
             
