@@ -5,6 +5,8 @@ import logging
 import httpx
 from dotenv import load_dotenv
 
+from podcast_fetcher.keys import Config
+
 # Load environment variables
 load_dotenv()
 
@@ -23,7 +25,7 @@ async def set_webhook(webhook_url: str):
     Returns:
         dict: Response with status and message
     """
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    bot_token = Config().TELEGRAM_BOT_TOKEN
     
     if not bot_token:
         return {"error": "TELEGRAM_BOT_TOKEN not found. Check your .env file or environment variables."}

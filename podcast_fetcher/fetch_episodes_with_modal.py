@@ -12,6 +12,8 @@ from sqlmodel import Session, select
 from sqlalchemy import and_
 from dotenv import load_dotenv
 
+from podcast_fetcher.keys import Config
+
 load_dotenv()
 
 from podcast_fetcher.database import (
@@ -29,7 +31,7 @@ app = modal.App("podcast-fetcher")
 
 image = (
     modal.Image.debian_slim(python_version="3.11.9")
-    .uv_pip_install("sqlmodel>=0.0.24", "beautifulsoup4>=4.13.4", "feedparser>=6.0.11", "python-dotenv>=1.1.1", "loguru>=0.7.1", "psycopg>=3.2.9", "requests>=2.31.0", "python-dateutil>=2.8.2", "psycopg2-binary>=2.9.10", "boto3>=1.34.0", "telethon>=1.35.0", "llama-index>=0.13.2", "llama-index-llms-bedrock-converse>=0.8.2")
+    .uv_pip_install("sqlmodel>=0.0.24", "beautifulsoup4>=4.13.4", "feedparser>=6.0.11", "python-dotenv>=1.1.1", "loguru>=0.7.1", "psycopg>=3.2.9", "requests>=2.31.0", "python-dateutil>=2.8.2", "psycopg2-binary>=2.9.10", "boto3>=1.34.0", "telethon>=1.35.0", "llama-index>=0.13.2", "llama-index-llms-bedrock-converse>=0.8.2","pydantic-settings>=2.11.0")
     .add_local_python_source("podcast_fetcher")
 )
 
@@ -109,11 +111,12 @@ def fetch_podcast_episodes():
 
 def get_s3_client():
     """Initialize and return an S3 client."""
+    c = Config()
     return boto3.client(
         's3',
-        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-        region_name='us-east-1'
+        aws_access_key_id=c.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=c.AWS_SECRET_ACCESS_KEY,
+        region_name=c.AWS_REGION
     )
 
 def download_audio(audio_url: str) -> Optional[Tuple[str, str]]:
@@ -185,11 +188,12 @@ def transcribe_episode(audio_uri: str, output_bucket_name: str, output_key: str,
     """
     try:
         # Initialize the Transcribe client
+        c = Config()
         transcribe_client = boto3.client(
             'transcribe',
             region_name=region_name,
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+            aws_access_key_id=c.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=c.AWS_SECRET_ACCESS_KEY
         )
         
         # Generate a unique job name
@@ -244,9 +248,9 @@ def fetch_transcripts():
     print("Starting transcript fetch on Modal...")
     
     # Get S3 bucket name from environment variable
-    output_bucket = os.getenv('TRANSCRIPT_S3_BUCKET')
+    output_bucket = Config().TRANSCRIPT_S3_BUCKET
     if not output_bucket:
-        print("Error: TRANSCRIPT_S3_BUCKET environment variable not set")
+        print("Error: TRANSCRIPT_S3_BUCKET not set")
         return
     
     # Get episodes that need transcripts
@@ -283,7 +287,7 @@ def fetch_transcripts():
                 # Upload to S3
                 s3_uri = upload_to_s3(
                     file_path=temp_file_path,
-                    bucket_name=os.getenv('EPISODE_S3_BUCKET'),
+                    bucket_name=Config().EPISODE_S3_BUCKET,
                     object_name=object_key
                 )
                 
@@ -364,9 +368,9 @@ def process_completed_transcripts():
     s3_client = get_s3_client()
     
     # Get the S3 bucket name from environment variable
-    bucket_name = os.getenv('TRANSCRIPT_S3_BUCKET')
+    bucket_name = Config().TRANSCRIPT_S3_BUCKET
     if not bucket_name:
-        print("Error: TRANSCRIPT_S3_BUCKET environment variable not set")
+        print("Error: TRANSCRIPT_S3_BUCKET not set")
         return
     
     with Session(engine) as session:
@@ -445,26 +449,49 @@ def process_all_notifications():
     """Process all types of notifications: immediate, daily, and weekly."""
     print("Starting unified notification processing on Modal...")
     
-    engine = init_database()
-    
-    with Session(engine) as session:
-        # Process immediate notifications
-        print("Processing immediate notifications...")
-        process_immediate_notifications_logic(engine, session)
+    try:
+        engine = init_database()
         
-        # Process daily digest (only if it's 9 AM)
-        current_hour = datetime.now(timezone.utc).hour
-        if current_hour == 9:
-            print("Processing daily digest...")
-            process_daily_digest_logic(engine, session)
+        with Session(engine) as session:
+            # Process immediate notifications
+            print("Processing immediate notifications...")
+            try:
+                process_immediate_notifications_logic(engine, session)
+            except Exception as e:
+                print(f"Error in immediate notifications: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # Process daily digest (only if it's 9 AM)
+            current_hour = datetime.now(timezone.utc).hour
+            print(f"Current hour (UTC): {current_hour}")
+            if current_hour == 9:
+                print("Processing daily digest...")
+                try:
+                    process_daily_digest_logic(engine, session)
+                except Exception as e:
+                    print(f"Error in daily digest: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # Process weekly digest (only if it's Monday 9 AM)
+            current_weekday = datetime.now(timezone.utc).weekday()  # 0 = Monday
+            print(f"Current weekday: {current_weekday} (0=Monday)")
+            if current_weekday == 0 and current_hour == 9:
+                print("Processing weekly digest...")
+                try:
+                    process_weekly_digest_logic(engine, session)
+                except Exception as e:
+                    print(f"Error in weekly digest: {e}")
+                    import traceback
+                    traceback.print_exc()
         
-        # Process weekly digest (only if it's Monday 9 AM)
-        current_weekday = datetime.now(timezone.utc).weekday()  # 0 = Monday
-        if current_weekday == 0 and current_hour == 9:
-            print("Processing weekly digest...")
-            process_weekly_digest_logic(engine, session)
-    
-    print("Unified notification processing complete.")
+        print("Unified notification processing complete.")
+        
+    except Exception as e:
+        print(f"Critical error in process_all_notifications: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def process_immediate_notifications_logic(engine, session):
@@ -516,6 +543,10 @@ def process_immediate_notifications_logic(engine, session):
                     )
                 )
             ).all()
+            
+            # Load podcast relationship for each episode
+            for episode in episodes:
+                episode.podcast = podcast
             
             if not episodes:
                 print(f"  No episodes with transcripts found for {podcast.title}")
@@ -587,7 +618,10 @@ def process_daily_digest_logic(engine, session):
             )
         ).all()
         
+        # Get podcast info and load relationship
+        podcast = session.get(Podcast, subscription.podcast_id)
         for episode in episodes:
+            episode.podcast = podcast
             if not is_episode_processed_for_user(engine, episode.id, username):
                 user_episodes[username].append(episode)
     
@@ -643,7 +677,10 @@ def process_weekly_digest_logic(engine, session):
             )
         ).all()
         
+        # Get podcast info and load relationship
+        podcast = session.get(Podcast, subscription.podcast_id)
         for episode in episodes:
+            episode.podcast = podcast
             if not is_episode_processed_for_user(engine, episode.id, username):
                 user_episodes[username].append(episode)
     
@@ -682,14 +719,21 @@ def process_episode_for_user(engine, episode: Episode, username: str) -> bool:
         
         # Initialize LLM for summary generation
         from llama_index.llms.bedrock_converse import BedrockConverse
+        c = Config()
         
-        llm = BedrockConverse(
-            model="us.amazon.nova-lite-v1:0",
-            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-            aws_session_token=os.getenv("AWS_SESSION_TOKEN"),
-            region_name=os.getenv("AWS_REGION"),
-        )
+        # Prepare LLM parameters
+        llm_params = {
+            "model": "us.amazon.nova-lite-v1:0",
+            "aws_access_key_id": c.AWS_ACCESS_KEY_ID,
+            "aws_secret_access_key": c.AWS_SECRET_ACCESS_KEY,
+            "region_name": c.AWS_REGION,
+        }
+        
+        # Only add session token if it's provided
+        if c.AWS_SESSION_TOKEN:
+            llm_params["aws_session_token"] = c.AWS_SESSION_TOKEN
+            
+        llm = BedrockConverse(**llm_params)
         
         # Generate summary
         summary = generate_episode_summary(llm, episode)
@@ -748,16 +792,22 @@ def send_telegram_notification_sync(username: str, message: str) -> bool:
         from telethon import TelegramClient
         
         # Initialize the client
+        c = Config()
+        print(f"Attempting to send message to @{username}")
+        print(f"Message length: {len(message)} characters")
+        
         client = TelegramClient(
             'podcast_bot',
-            int(os.getenv('TELEGRAM_APP_API_ID')),
-            os.getenv('TELEGRAM_APP_API_HASH')
+            c.TELEGRAM_APP_API_ID,
+            c.TELEGRAM_APP_API_HASH
         )
         
         # Run the async function
         async def send_message():
-            await client.start(bot_token=os.getenv('TELEGRAM_BOT_TOKEN'))
+            await client.start(bot_token=c.TELEGRAM_BOT_TOKEN)
+            print(f"Telegram client started, sending to @{username}")
             await client.send_message(f"@{username}", message, parse_mode='markdown')
+            print(f"Message sent successfully to @{username}")
             await client.disconnect()
         
         # Execute the async function
@@ -765,7 +815,9 @@ def send_telegram_notification_sync(username: str, message: str) -> bool:
         return True
         
     except Exception as e:
-        print(f"Error sending Telegram notification to {username}: {e}")
+        print(f"Error sending Telegram notification to @{username}: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 

@@ -10,6 +10,7 @@ from telethon import TelegramClient
 
 from llama_index.llms.bedrock_converse import BedrockConverse
 from podcast_fetcher.database import init_database, get_episodes_since
+from podcast_fetcher.keys import Config
 from podcast_fetcher.models import Episode
 
 load_dotenv()
@@ -95,14 +96,15 @@ async def send_telegram_message(message: str, username: str = '@wiskkkk') -> Non
     """
     try:
         # Initialize the client
+        c = Config()
         client = TelegramClient(
             'podcast_bot',
-            int(os.getenv('TELEGRAM_APP_API_ID')),
-            os.getenv('TELEGRAM_APP_API_HASH')
+            c.TELEGRAM_APP_API_ID,
+            c.TELEGRAM_APP_API_HASH
         )
         
         # Connect and authenticate
-        await client.start(bot_token=os.getenv('TELEGRAM_BOT_TOKEN'))
+        await client.start(bot_token=c.TELEGRAM_BOT_TOKEN)
         
         # Split message if needed and send each chunk
         message_chunks = split_message(message)
@@ -157,10 +159,10 @@ def analyze_episodes(days_ago: int = 7) -> Tuple[list[str], int]:
     
     llm = BedrockConverse(
         model="us.amazon.nova-lite-v1:0",
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-        aws_session_token=os.getenv("AWS_SESSION_TOKEN"),
-        region_name=os.getenv("AWS_REGION"),
+        aws_access_key_id=c.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=c.AWS_SECRET_ACCESS_KEY,
+        aws_session_token=c.AWS_SESSION_TOKEN,
+        region_name=c.AWS_REGION,
     )
     
     # Get recent episodes

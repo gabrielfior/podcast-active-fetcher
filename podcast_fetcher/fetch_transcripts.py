@@ -10,18 +10,19 @@ from sqlmodel import Session, select
 from dotenv import load_dotenv
 
 from podcast_fetcher.database import init_database
+from podcast_fetcher.keys import Config
 from podcast_fetcher.models import Episode, TranscriptionJob
 
-# Load environment variables
-load_dotenv()
+
 
 def get_s3_client():
     """Initialize and return an S3 client."""
+    c = Config()
     return boto3.client(
         's3',
-        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-        region_name='us-east-1'
+        aws_access_key_id=c.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=c.AWS_SECRET_ACCESS_KEY,
+        region_name=c.AWS_REGION
     )
 
 def download_audio(audio_url: str) -> Optional[Tuple[str, str]]:
@@ -92,12 +93,13 @@ def transcribe_episode(audio_uri: str, output_bucket_name: str, output_key: str,
         Job name if successful, None otherwise
     """
     try:
+        c = Config()
         # Initialize the Transcribe client
         transcribe_client = boto3.client(
             'transcribe',
             region_name=region_name,
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+            aws_access_key_id=c.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=c.AWS_SECRET_ACCESS_KEY
         )
         
         # Generate a unique job name
@@ -150,9 +152,9 @@ def main():
     init_database()
     
     # Get S3 bucket name from environment variable
-    output_bucket = os.getenv('TRANSCRIPT_S3_BUCKET')
+    output_bucket = Config().TRANSCRIPT_S3_BUCKET
     if not output_bucket:
-        print("Error: TRANSCRIPT_S3_BUCKET environment variable not set")
+        print("Error: TRANSCRIPT_S3_BUCKET not set")
         return
     
     # Get episodes that need transcripts
@@ -189,7 +191,7 @@ def main():
                 # Upload to S3
                 s3_uri = upload_to_s3(
                     file_path=temp_file_path,
-                    bucket_name=os.getenv('EPISODE_S3_BUCKET'),
+                    bucket_name=Config().EPISODE_S3_BUCKET,
                     object_name=object_key
                 )
                 

@@ -8,6 +8,7 @@ import os
 from datetime import datetime, timezone
 load_dotenv()
 
+from podcast_fetcher.keys import Config
 from podcast_fetcher.models import Episode, UserSubscription, ProcessedEpisode, Podcast
 from loguru import logger
 
@@ -18,7 +19,7 @@ def init_database() -> Engine:
     Returns:
         Engine: SQLAlchemy engine instance
     """
-    DB_PATH = os.getenv('SQLALCHEMY_DATABASE_URI')
+    DB_PATH = Config().SQLALCHEMY_DATABASE_URI
     logger.info(f"Initializing database with path: {DB_PATH}")
     engine = create_engine(DB_PATH)
     
@@ -231,16 +232,23 @@ def get_user_subscriptions(engine: Engine, username: str) -> List[Tuple[UserSubs
     """
     try:
         with Session(engine) as session:
-            statement = select(UserSubscription, Podcast).join(
-                Podcast, UserSubscription.podcast_id == Podcast.id
-            ).where(
+            # First get the subscriptions
+            subscription_statement = select(UserSubscription).where(
                 and_(
                     UserSubscription.username == username,
                     UserSubscription.is_active == True
                 )
             )
-            results = session.exec(statement)
-            return list(results.all())
+            subscriptions = session.exec(subscription_statement).all()
+            
+            # Then get the podcasts for each subscription
+            result = []
+            for subscription in subscriptions:
+                podcast = session.get(Podcast, subscription.podcast_id)
+                if podcast:
+                    result.append((subscription, podcast))
+            
+            return result
             
     except Exception as e:
         logger.error(f"Error getting user subscriptions: {e}")

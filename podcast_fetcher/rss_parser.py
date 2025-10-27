@@ -17,8 +17,6 @@ except ImportError:  # pragma: no cover
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-from .config import RSS_FEED
-
 def extract_episode_id(entry: Dict[str, Any]) -> str:
     """Generate a unique ID for the episode using multiple fields."""
     # Create a hash of the title and published date to ensure uniqueness
@@ -107,7 +105,7 @@ def parse_published_date(published_str: str) -> datetime:
         # Fallback to current time if parsing fails
         return datetime.now(timezone.utc)
 
-def get_latest_episodes(feed_url: str = RSS_FEED, max_episodes: int = 10) -> List[Dict[str, Any]]:
+def get_latest_episodes(feed_url: str, max_episodes: int = 10) -> List[Dict[str, Any]]:
     """Fetch and return the latest episodes from the podcast RSS feed.
     
     Args:
@@ -120,7 +118,7 @@ def get_latest_episodes(feed_url: str = RSS_FEED, max_episodes: int = 10) -> Lis
     return get_episodes_since(feed_url=feed_url, max_episodes=max_episodes)
 
 def get_episodes_since(
-    feed_url: str = RSS_FEED, 
+    feed_url: str, 
     since_date: Optional[datetime] = None, 
     max_episodes: Optional[int] = None
 ) -> List[Dict[str, Any]]:

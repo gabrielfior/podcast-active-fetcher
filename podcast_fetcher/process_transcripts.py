@@ -1,24 +1,21 @@
 """Script to process completed transcriptions from S3 and update the database."""
-import os
 import json
 import boto3
 from typing import Dict, Any, Optional
 from sqlmodel import Session, select
-from dotenv import load_dotenv
 
 from podcast_fetcher.database import init_database
+from podcast_fetcher.keys import Config
 from podcast_fetcher.models import TranscriptionJob, Episode
-
-# Load environment variables
-load_dotenv()
 
 def get_s3_client():
     """Initialize and return an S3 client."""
+    c = Config()
     return boto3.client(
         's3',
-        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-        region_name=os.getenv('AWS_REGION', 'us-east-1')
+        aws_access_key_id=c.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=c.AWS_SECRET_ACCESS_KEY,
+        region_name=c.AWS_REGION
     )
 
 def extract_transcript_text(transcript_data: Dict[str, Any]) -> str:
@@ -49,9 +46,9 @@ def process_completed_jobs() -> None:
     s3_client = get_s3_client()
     
     # Get the S3 bucket name from environment variable
-    bucket_name = os.getenv('TRANSCRIPT_S3_BUCKET')
+    bucket_name = Config().TRANSCRIPT_S3_BUCKET
     if not bucket_name:
-        print("Error: TRANSCRIPT_S3_BUCKET environment variable not set")
+        print("Error: TRANSCRIPT_S3_BUCKET not set")
         return
     
     with Session(engine) as session:

@@ -38,9 +38,6 @@ class Episode(SQLModel, table=True):
     podcast_id: Optional[int] = Field(default=None, foreign_key="podcast.id")
     podcast: Optional[Podcast] = Relationship(back_populates="episodes")
 
-    class Config:
-        """Pydantic config."""
-        arbitrary_types_allowed = True
 
 
 class UserSubscription(SQLModel, table=True):
@@ -67,9 +64,6 @@ class UserSubscription(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
-    class Config:
-        """Pydantic config."""
-        arbitrary_types_allowed = True
 
 
 class ProcessedEpisode(SQLModel, table=True):
@@ -89,9 +83,6 @@ class ProcessedEpisode(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
-    class Config:
-        """Pydantic config."""
-        arbitrary_types_allowed = True
 
 
 class TranscriptionJob(SQLModel, table=True):
@@ -126,6 +117,3 @@ class TranscriptionJob(SQLModel, table=True):
         description="Timestamp when the job was last updated"
     )
 
-    class Config:
-        """Pydantic config."""
-        arbitrary_types_allowed = True
