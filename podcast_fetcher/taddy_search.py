@@ -1,10 +1,11 @@
 """Taddy API search functionality for finding podcasts."""
 
-import requests
 import json
-from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import requests
 
 
 @dataclass

@@ -1,7 +1,9 @@
 """Database models for the podcast fetcher."""
 from datetime import datetime, timezone
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+from typing import List, Optional
+
+from sqlmodel import Field, Relationship, SQLModel
+
 
 class Podcast(SQLModel, table=True):
     """SQLModel for podcast series."""

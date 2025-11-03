@@ -1,6 +1,6 @@
+from sqlmodel import Session, create_engine, select
 from strands import Agent, tool
 
-from sqlmodel import create_engine, select, Session
 from podcast_fetcher.keys import Config
 from podcast_fetcher.models import Episode, Podcast
 

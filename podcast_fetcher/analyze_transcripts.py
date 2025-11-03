@@ -1,19 +1,13 @@
 
-import argparse
-from datetime import datetime, timezone
-from typing import List, Tuple
 import textwrap
-from dotenv import load_dotenv
-import os
-import asyncio
-from telethon import TelegramClient
+from typing import Tuple
+
 
 from llama_index.llms.bedrock_converse import BedrockConverse
-from podcast_fetcher.database import init_database, get_episodes_since
+
+from podcast_fetcher.database import get_episodes_since, init_database
 from podcast_fetcher.keys import Config
 from podcast_fetcher.models import Episode
-
-load_dotenv()
 
 def format_summary(summary: str) -> str:
     """Format the summary with proper indentation for better readability."""
@@ -87,45 +81,6 @@ def split_message(message: str, max_length: int = 4096) -> list[str]:
     
     return chunks
 
-async def send_telegram_message(message: str, username: str = '@wiskkkk') -> None:
-    """Send a message to a Telegram user, splitting it if necessary.
-    
-    Args:
-        message: The message to send
-        username: The Telegram username to send the message to (with @)
-    """
-    try:
-        # Initialize the client
-        c = Config()
-        client = TelegramClient(
-            'podcast_bot',
-            c.TELEGRAM_APP_API_ID,
-            c.TELEGRAM_APP_API_HASH
-        )
-        
-        # Connect and authenticate
-        await client.start(bot_token=c.TELEGRAM_BOT_TOKEN)
-        
-        # Split message if needed and send each chunk
-        message_chunks = split_message(message)
-        total_chunks = len(message_chunks)
-        
-        for i, chunk in enumerate(message_chunks, 1):
-            # Add progress indicator if there are multiple chunks
-            if total_chunks > 1:
-                progress = f" ({i}/{total_chunks})"
-            else:
-                progress = ""
-                
-            await client.send_message(username, chunk, parse_mode='markdown')
-            print(f"\nMessage part {i}{progress} sent to {username} successfully!")
-        
-        # Disconnect
-        await client.disconnect()
-    except Exception as e:
-        print(f"\nError sending Telegram message: {str(e)}")
-        if 'client' in locals() and client.is_connected():
-            await client.disconnect()
 
 def build_episode_message(episode: Episode, summary: str) -> str:
     """Build a formatted message for a single episode.
@@ -157,6 +112,8 @@ def analyze_episodes(days_ago: int = 7) -> Tuple[list[str], int]:
     # Initialize database and LLM
     engine = init_database()
     
+    
+    c = Config()
     llm = BedrockConverse(
         model="us.amazon.nova-lite-v1:0",
         aws_access_key_id=c.AWS_ACCESS_KEY_ID,
@@ -203,27 +160,7 @@ def analyze_episodes(days_ago: int = 7) -> Tuple[list[str], int]:
     
     # Add footer to the last message
     if messages:
-        messages[-1] += f"\n📊 *Total Episodes Processed:* {len(episodes)}"
+        messages[-1] += f"\n *Total episodes processed:* {len(episodes)}"
     
     return messages, len(episodes)
 
-def main(days_ago: int = 7):
-    """Main function to analyze episodes and send summary via Telegram.
-    
-    Args:
-        days_ago: Number of days to look back for episodes (default: 7)
-    """
-    # Analyze episodes and get message chunks
-    message_chunks, num_episodes = analyze_episodes(days_ago)
-    
-    if num_episodes > 0:
-        # Send all message chunks via Telegram
-        asyncio.run(send_telegram_message("\n\n".join(message_chunks)))
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Analyze and summarize podcast transcripts.')
-    parser.add_argument('--days', type=int, default=7,
-                      help='Number of days to look back for episodes (default: 7)')
-    args = parser.parse_args()
-    
-    main(days_ago=args.days)

@@ -5,8 +5,8 @@ import argparse
 import sys
 from typing import List
 
-from .taddy_search import TaddySearcher, TaddySearchError
 from .config import TADDY_API_KEY, TADDY_USER_ID
+from .taddy_search import TaddySearcher, TaddySearchError
 
 
 def format_podcast_output(podcast) -> str:

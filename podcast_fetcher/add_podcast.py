@@ -1,11 +1,13 @@
 """CLI for adding and managing podcast series."""
-import click
 from datetime import datetime, timezone
-from sqlmodel import Session, select
 from typing import Optional
+
+import click
+from sqlmodel import Session, select
 
 from podcast_fetcher.database import init_database
 from podcast_fetcher.models import Podcast
+
 
 @click.group()
 def cli():

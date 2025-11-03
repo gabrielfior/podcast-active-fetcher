@@ -1,12 +1,19 @@
 """Main entry point for the podcast fetcher package."""
 import argparse
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from sqlmodel import Session, select
 
-from podcast_fetcher.database import init_database, save_episode, get_episodes_count, episode_exists
+from podcast_fetcher.database import (
+    episode_exists,
+    get_episodes_count,
+    init_database,
+    save_episode,
+)
+from podcast_fetcher.models import Episode, Podcast
 from podcast_fetcher.rss_parser import get_episodes_since, get_latest_episodes
-from podcast_fetcher.models import Podcast, Episode
+
 
 def format_datetime(dt: datetime) -> str:
     """Format a datetime object for display."""

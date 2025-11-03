@@ -1,16 +1,20 @@
 """Database operations for the podcast fetcher."""
-from typing import Dict, List, Tuple, Any, cast, Optional
-from sqlalchemy import func, select as sql_select, and_
-from sqlmodel import SQLModel, create_engine, Session, select
-from sqlalchemy.engine import Engine
-from dotenv import load_dotenv
 import os
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple, cast
+
+from dotenv import load_dotenv
+from sqlalchemy import and_, func
+from sqlalchemy import select as sql_select
+from sqlalchemy.engine import Engine
+from sqlmodel import Session, SQLModel, create_engine, select
+
 load_dotenv()
 
-from podcast_fetcher.keys import Config
-from podcast_fetcher.models import Episode, UserSubscription, ProcessedEpisode, Podcast
 from loguru import logger
+
+from podcast_fetcher.keys import Config
+from podcast_fetcher.models import Episode, Podcast, ProcessedEpisode, UserSubscription
 
 
 def init_database() -> Engine:

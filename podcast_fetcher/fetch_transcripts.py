@@ -1,18 +1,18 @@
 """Script to fetch transcripts for podcast episodes using AWS Transcribe."""
 import os
-import uuid
 import tempfile
-import requests
-import boto3
-from urllib.parse import urlparse
+import uuid
 from typing import List, Optional, Tuple
-from sqlmodel import Session, select
+from urllib.parse import urlparse
+
+import boto3
+import requests
 from dotenv import load_dotenv
+from sqlmodel import Session, select
 
 from podcast_fetcher.database import init_database
 from podcast_fetcher.keys import Config
 from podcast_fetcher.models import Episode, TranscriptionJob
-
 
 
 def get_s3_client():

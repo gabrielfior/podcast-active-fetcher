@@ -1,28 +1,28 @@
-from botocore.config import Config
-import modal
 import os
 import re
-from datetime import datetime, timezone
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-from fastapi import FastAPI, Request
-from aiogram import F, Bot, Dispatcher, Router
+import modal
+from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
-from aiogram.types import (
-    Message,
-    Update,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
-)
-from aiogram.utils.markdown import hbold
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-
+from aiogram.types import (
+    KeyboardButton,
+    Message,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    Update,
+)
+from aiogram.utils.markdown import hbold
+from botocore.config import Config
+from fastapi import FastAPI, Request
 from sqlmodel import Session, select
+
 from podcast_fetcher.database import (
     get_user_subscriptions,
     init_database,
@@ -30,9 +30,9 @@ from podcast_fetcher.database import (
     unsubscribe_user_from_podcast,
     update_subscription_preferences,
 )
+from podcast_fetcher.keys import Config as KeysConfig
 from podcast_fetcher.models import Podcast
 from podcast_fetcher.taddy_search import TaddySearchError, create_taddy_searcher
-from podcast_fetcher.keys import Config as KeysConfig
 
 # Create Modal app
 app = modal.App("aiogram-telegram-bot-fastapi")
@@ -106,8 +106,8 @@ def fastapi_bot():
     import logging
     import sys
 
-    from podcast_fetcher.podcast_agent import get_agent_response
     from podcast_fetcher.keys import Config
+    from podcast_fetcher.podcast_agent import get_agent_response
 
     # Bot token from Modal secrets
     API_TOKEN = Config().TELEGRAM_BOT_TOKEN
@@ -120,6 +120,25 @@ def fastapi_bot():
 
     # All handlers should be attached to the Router
     router = Router()
+
+    @router.message(Command("help"))
+    async def help_handler(message: Message) -> None:
+        """
+        Display all available commands with descriptions.
+        """
+        help_text = (
+            "📚 <b>Available Commands:</b>\n\n"
+            "/help - Show this help message\n"
+            "/chat - Chat with the podcast agent\n"
+            "/subscribe - Subscribe to a podcast\n"
+            "/my_subscriptions - View your current subscriptions\n"
+            "/unsubscribe - Unsubscribe from a podcast\n"
+            "💡 <b>Tips:</b>\n"
+            "• Use /subscribe to search and subscribe to podcasts\n"
+            "• You can choose notification preferences (immediate, daily, or weekly)\n"
+            "• Use 'cancel' at any time to stop the current operation"
+        )
+        await message.answer(help_text)
 
     @router.message(Command("chat"))
     async def chat_handler(message: Message) -> None:
@@ -713,7 +732,7 @@ def fastapi_bot():
         if message.text and not message.text.startswith("/"):
             print(f"Responding to non-command text: {message.text}")
             await message.answer(
-                "I didn't understand that. Use /subscribe to find podcasts, /my_subscriptions to view your subscriptions, or /help for more commands."
+                "I didn't understand that. Use /subscribe to find podcasts, /my_subscriptions to view your subscriptions."
             )
         else:
             print(f"Ignoring command or non-text message: {message.text}")

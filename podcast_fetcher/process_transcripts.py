@@ -1,12 +1,14 @@
 """Script to process completed transcriptions from S3 and update the database."""
 import json
+from typing import Any, Dict, Optional
+
 import boto3
-from typing import Dict, Any, Optional
 from sqlmodel import Session, select
 
 from podcast_fetcher.database import init_database
 from podcast_fetcher.keys import Config
-from podcast_fetcher.models import TranscriptionJob, Episode
+from podcast_fetcher.models import Episode, TranscriptionJob
+
 
 def get_s3_client():
     """Initialize and return an S3 client."""

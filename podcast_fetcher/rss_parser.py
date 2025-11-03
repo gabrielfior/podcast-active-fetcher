@@ -1,11 +1,12 @@
 """RSS feed parsing functionality for the podcast fetcher."""
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Any, Optional, cast
-import feedparser
-import html
-import requests
 import hashlib
+import html
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, cast
 from urllib.parse import urlparse
+
+import feedparser
+import requests
 from dateutil import parser as date_parser
 
 try:
@@ -14,8 +15,9 @@ try:
 except ImportError:  # pragma: no cover
     BEAUTIFUL_SOUP_AVAILABLE = False
 
-from typing import Optional, List, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 
 def extract_episode_id(entry: Dict[str, Any]) -> str:
     """Generate a unique ID for the episode using multiple fields."""

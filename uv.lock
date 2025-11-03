@@ -1841,6 +1841,7 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "isort" },
     { name = "modal" },
 ]
 
@@ -1876,7 +1877,10 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "modal", specifier = ">=1.1.4" }]
+dev = [
+    { name = "isort", specifier = ">=6.0.1" },
+    { name = "modal", specifier = ">=1.1.4" },
+]
 
 [[package]]
 name = "prompt-toolkit"

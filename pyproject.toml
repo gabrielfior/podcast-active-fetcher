@@ -64,5 +64,6 @@ exclude = ["ui*", "bot*", "data*", "aws_lambda_function*"]
 
 [dependency-groups]
 dev = [
+    "isort>=6.0.1",
     "modal>=1.1.4",
 ]
