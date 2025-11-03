@@ -41,11 +41,30 @@ app = modal.App("aiogram-telegram-bot-fastapi")
 user_search_results = {}
 
 
+def escape_markdown(text: str) -> str:
+    """
+    Escape Markdown special characters to prevent parsing errors.
+    Escapes: *, _, [, ], `, \
+    """
+    if not text:
+        return ""
+    # Escape special Markdown characters
+    escape_chars = ['*', '_', '[', ']', '`', '\\']
+    for char in escape_chars:
+        text = text.replace(char, f'\\{char}')
+    return text
+
+
 # Conversation states for subscribe command
 class SubscribeStates(StatesGroup):
     PODCAST_TITLE = State()
     PODCAST_SELECTION = State()
     NOTIFICATION_PREFERENCES = State()
+
+
+# Conversation states for unsubscribe command
+class UnsubscribeStates(StatesGroup):
+    PODCAST_SELECTION = State()
 
 
 # Define the image with all necessary dependencies
@@ -146,12 +165,14 @@ def fastapi_bot():
             message_text = f"🎧 **Your Subscriptions** ({len(subscriptions)})\n\n"
 
             for i, (subscription, podcast) in enumerate(subscriptions, 1):
-                message_text += f"{i}. **{podcast.title}**\n"
+                escaped_title = escape_markdown(podcast.title)
+                escaped_rss = escape_markdown(podcast.rss_feed)
+                message_text += f"{i}. **{escaped_title}**\n"
                 message_text += f"   📅 Subscribed: {subscription.subscribed_at.strftime('%Y-%m-%d')}\n"
                 message_text += (
                     f"   🔔 Notifications: {subscription.notification_preferences}\n"
                 )
-                message_text += f"   🔗 RSS: {podcast.rss_feed}\n\n"
+                message_text += f"   🔗 RSS: {escaped_rss}\n\n"
 
             await message.answer(message_text, parse_mode="Markdown")
 
@@ -170,7 +191,7 @@ def fastapi_bot():
         print(f"subscribe_start called by user: {message.from_user.username}")
         await state.set_state(SubscribeStates.PODCAST_TITLE)
         await message.answer(
-            "Please enter the title of the podcast you want to subscribe to.",
+            "Please enter the title of the podcast you want to subscribe to, or 'cancel' to stop.",
             reply_markup=ReplyKeyboardRemove()
         )
         
@@ -233,15 +254,19 @@ def fastapi_bot():
             user_search_results[message.from_user.username] = search_results_dict
             
             # Create message text with podcast details (enumerated list)
-            message_text = f"🔍 Found {len(results.podcasts)} podcasts for '{search_term}':\n\n"
+            escaped_search_term = escape_markdown(search_term)
+            message_text = f"🔍 Found {len(results.podcasts)} podcasts for '{escaped_search_term}':\n\n"
             for i, podcast in enumerate(results.podcasts[:10]):  # Show first 10 results
-                message_text += f"{i+1}. **{podcast.name}**\n"
+                escaped_name = escape_markdown(podcast.name)
+                message_text += f"{i+1}. **{escaped_name}**\n"
                 if podcast.description:
                     # Clean HTML tags and truncate description
                     import re
                     clean_desc = re.sub(r'<[^>]+>', '', podcast.description)
-                    message_text += f"   📝 {clean_desc[:150]}{'...' if len(clean_desc) > 150 else ''}\n"
-                message_text += f"   🔗 RSS: {podcast.rss_url}\n\n"
+                    escaped_desc = escape_markdown(clean_desc[:150])
+                    message_text += f"   📝 {escaped_desc}{'...' if len(clean_desc) > 150 else ''}\n"
+                escaped_rss = escape_markdown(podcast.rss_url)
+                message_text += f"   🔗 RSS: {escaped_rss}\n\n"
             
             message_text += "Please type the **number** of the podcast you want to subscribe to (1-10), or type 'cancel' to stop:"
             
@@ -310,10 +335,15 @@ def fastapi_bot():
             await state.update_data(selected_podcast=selected_podcast)
             
             # Show confirmation
+            escaped_name = escape_markdown(selected_podcast['name'])
+            description = selected_podcast.get('description') or ''
+            escaped_desc = escape_markdown(description[:200]) if description else 'No description available'
+            escaped_rss = escape_markdown(selected_podcast['rss_url'])
+            desc_suffix = '...' if len(description) > 200 else ''
             await message.answer(
-                f"✅ You selected: **{selected_podcast['name']}**\n\n"
-                f"📝 Description: {selected_podcast['description'][:200]}{'...' if len(selected_podcast['description']) > 200 else ''}\n\n"
-                f"🔗 RSS Feed: {selected_podcast['rss_url']}\n\n"
+                f"✅ You selected: **{escaped_name}**\n\n"
+                f"📝 Description: {escaped_desc}{desc_suffix}\n\n"
+                f"🔗 RSS Feed: {escaped_rss}\n\n"
                 f"🔔 **Choose your notification preference:**\n\n"
                 f"1️⃣ **Immediate** - Get notified as soon as new episodes are published\n"
                 f"2️⃣ **Daily** - Get a daily digest of new episodes\n"
@@ -404,8 +434,9 @@ def fastapi_bot():
                     )
                     
                     if success:
+                        escaped_name = escape_markdown(selected_podcast['name'])
                         await message.answer(
-                            f"🎉 Successfully subscribed to **{selected_podcast['name']}**!\n\n"
+                            f"🎉 Successfully subscribed to **{escaped_name}**!\n\n"
                             f"🔔 **Notification preference:** {notification_preference.title()}\n\n"
                             f"You'll receive notifications about new episodes based on your preference.",
                             parse_mode="Markdown"
@@ -434,8 +465,9 @@ def fastapi_bot():
                     )
                     
                     if success:
+                        escaped_name = escape_markdown(selected_podcast['name'])
                         await message.answer(
-                            f"🎉 Successfully subscribed to **{selected_podcast['name']}**!\n\n"
+                            f"🎉 Successfully subscribed to **{escaped_name}**!\n\n"
                             f"🔔 **Notification preference:** {notification_preference.title()}\n\n"
                             f"You'll receive notifications about new episodes based on your preference.",
                             parse_mode="Markdown"
@@ -454,13 +486,148 @@ def fastapi_bot():
                 "❌ Error subscribing. Please try again or use /cancel to stop."
             )
     
+    # --- Unsubscribe Handler ---
+    @router.message(Command("unsubscribe"))
+    async def unsubscribe_start(message: Message, state: FSMContext) -> None:
+        """Start the unsubscribe process by showing user's subscriptions."""
+        username = message.from_user.username
+        print(f"unsubscribe_start called by user: {username}")
+
+        try:
+            # Initialize database
+            engine = init_database()
+
+            # Get user's subscriptions
+            subscriptions = get_user_subscriptions(engine, username)
+            print(f"Found {len(subscriptions)} subscriptions for user {username}")
+
+            if not subscriptions:
+                await message.answer(
+                    "📭 You don't have any active subscriptions to unsubscribe from.\n\n"
+                    "Use /subscribe to subscribe to podcasts!"
+                )
+                return
+
+            # Store subscriptions in state (convert to dict for serialization)
+            subscriptions_dict = [
+                {
+                    'subscription_id': subscription.id,
+                    'podcast_id': subscription.podcast_id,
+                    'podcast_title': podcast.title
+                }
+                for subscription, podcast in subscriptions
+            ]
+            await state.update_data(subscriptions=subscriptions_dict)
+
+            # Format subscriptions message with numbers
+            message_text = f"🎧 **Select a podcast to unsubscribe from:**\n\n"
+            for i, (subscription, podcast) in enumerate(subscriptions, 1):
+                escaped_title = escape_markdown(podcast.title)
+                message_text += f"{i}. **{escaped_title}**\n"
+                message_text += f"   📅 Subscribed: {subscription.subscribed_at.strftime('%Y-%m-%d')}\n\n"
+
+            message_text += "Please type the **number** of the podcast you want to unsubscribe from, or type 'cancel' to stop:"
+
+            await message.answer(message_text, parse_mode="Markdown")
+            await state.set_state(UnsubscribeStates.PODCAST_SELECTION)
+
+        except Exception as e:
+            print(f"Database error when getting subscriptions for unsubscribe: {e}")
+            import traceback
+            traceback.print_exc()
+            await message.answer(
+                "❌ Sorry, there was an error retrieving your subscriptions. Please try again later."
+            )
+
+    @router.message(UnsubscribeStates.PODCAST_SELECTION)
+    async def handle_unsubscribe_selection(message: Message, state: FSMContext) -> None:
+        """Handle podcast selection for unsubscribe by number input."""
+        print(f"handle_unsubscribe_selection called by user: {message.from_user.username}")
+        print(f"User input: {message.text}")
+
+        try:
+            # Check if user wants to cancel
+            if message.text.lower() in ['cancel', 'c', 'stop']:
+                await state.clear()
+                await message.answer("❌ Unsubscribe cancelled.")
+                return
+
+            # Try to parse the number
+            try:
+                selection_number = int(message.text.strip())
+            except ValueError:
+                await message.answer(
+                    "❌ Please enter a valid number or type 'cancel' to stop."
+                )
+                return
+
+            # Get subscriptions from state
+            data = await state.get_data()
+            subscriptions = data.get("subscriptions", [])
+
+            if not subscriptions:
+                await message.answer("❌ No subscriptions found. Please start over with /unsubscribe.")
+                await state.clear()
+                return
+
+            # Validate selection number
+            if selection_number < 1 or selection_number > len(subscriptions):
+                await message.answer(
+                    f"❌ Please enter a number between 1 and {len(subscriptions)}, or type 'cancel' to stop."
+                )
+                return
+
+            # Get selected subscription (convert from 1-based to 0-based index)
+            selected_subscription = subscriptions[selection_number - 1]
+            podcast_id = selected_subscription['podcast_id']
+            podcast_title = selected_subscription['podcast_title']
+            print(f"Unsubscribing from podcast: {podcast_title} (ID: {podcast_id})")
+
+            # Initialize database
+            engine = init_database()
+            username = message.from_user.username
+
+            # Unsubscribe user
+            success, result_message = unsubscribe_user_from_podcast(
+                engine=engine,
+                username=username,
+                podcast_id=podcast_id
+            )
+
+            if success:
+                escaped_title = escape_markdown(podcast_title)
+                await message.answer(
+                    f"✅ Successfully unsubscribed from **{escaped_title}**!\n\n"
+                    f"You'll no longer receive notifications about new episodes from this podcast.",
+                    parse_mode="Markdown"
+                )
+            else:
+                await message.answer(f"❌ {result_message}")
+
+            # Clear state
+            await state.clear()
+
+        except Exception as e:
+            print(f"Error processing unsubscribe selection: {e}")
+            import traceback
+            traceback.print_exc()
+            await message.answer(
+                "❌ Error unsubscribing. Please try again or use /cancel to stop."
+            )
+    
     # Handle number input for podcast selection (fallback for state issues)
     @router.message(F.text.regexp(r'^\d+$'))
     async def handle_number_input(message: Message, state: FSMContext) -> None:
         """Handle number input that might be podcast selection."""
         print(f"handle_number_input called by user: {message.from_user.username}")
         print(f"User input: {message.text}")
-        print(f"Current state: {await state.get_state()}")
+        current_state = await state.get_state()
+        print(f"Current state: {current_state}")
+        
+        # If we're in unsubscribe state, let the unsubscribe handler process it
+        if current_state == UnsubscribeStates.PODCAST_SELECTION:
+            print("In unsubscribe state, skipping handle_number_input")
+            return
         
         try:
             # Check if we have search results in state
@@ -496,10 +663,15 @@ def fastapi_bot():
             await state.update_data(selected_podcast=selected_podcast)
             
             # Show confirmation
+            escaped_name = escape_markdown(selected_podcast['name'])
+            description = selected_podcast.get('description') or ''
+            escaped_desc = escape_markdown(description[:200]) if description else 'No description available'
+            escaped_rss = escape_markdown(selected_podcast['rss_url'])
+            desc_suffix = '...' if len(description) > 200 else ''
             await message.answer(
-                f"✅ You selected: **{selected_podcast['name']}**\n\n"
-                f"📝 Description: {selected_podcast['description'][:200]}{'...' if len(selected_podcast['description']) > 200 else ''}\n\n"
-                f"🔗 RSS Feed: {selected_podcast['rss_url']}\n\n"
+                f"✅ You selected: **{escaped_name}**\n\n"
+                f"📝 Description: {escaped_desc}{desc_suffix}\n\n"
+                f"🔗 RSS Feed: {escaped_rss}\n\n"
                 f"🔔 **Choose your notification preference:**\n\n"
                 f"1️⃣ **Immediate** - Get notified as soon as new episodes are published\n"
                 f"2️⃣ **Daily** - Get a daily digest of new episodes\n"
